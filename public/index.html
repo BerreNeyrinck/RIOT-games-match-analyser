@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LoL Match Analyzer — AI Coach</title>
+  <style>
+    :root {
+      --bg: #0a0e14;
+      --surface: #111827;
+      --surface2: #1a2332;
+      --border: #1e2d3d;
+      --gold: #c8aa6e;
+      --gold-bright: #f0e6d2;
+      --blue: #0397ab;
+      --red: #e84057;
+      --green: #2ecc71;
+      --text: #e0e0e0;
+      --text-dim: #8a9099;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #0a1428 0%, #1a2332 100%);
+      border-bottom: 2px solid var(--gold);
+      padding: 1.5rem 2rem;
+    }
+    header h1 {
+      font-size: 1.5rem;
+      color: var(--gold-bright);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    header p { color: var(--text-dim); font-size: 0.85rem; margin-top: 4px; }
+    .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+
+    /* Search form */
+    .search-bar {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    .search-bar input, .search-bar select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      flex: 1;
+      min-width: 150px;
+    }
+    .search-bar input:focus, .search-bar select:focus {
+      outline: none;
+      border-color: var(--gold);
+    }
+    .search-bar select { flex: 0 0 120px; }
+    .search-bar button {
+      background: var(--gold);
+      color: #1a1a1a;
+      border: none;
+      padding: 0.75rem 2rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .search-bar button:hover { background: var(--gold-bright); }
+    .search-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-dim);
+    }
+    .spinner {
+      display: inline-block;
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Error */
+    .error {
+      background: rgba(232,64,87,0.1);
+      border: 1px solid var(--red);
+      color: var(--red);
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+    }
+
+    /* Match list */
+    .match-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .match-card {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      border-left: 4px solid var(--border);
+      transition: border-color 0.2s;
+    }
+    .match-card.win { border-left-color: var(--green); }
+    .match-card.loss { border-left-color: var(--red); }
+    .match-card:hover { background: var(--surface2); }
+
+    .match-result {
+      font-weight: 800;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      width: 50px;
+      text-align: center;
+    }
+    .match-result.win { color: var(--green); }
+    .match-result.loss { color: var(--red); }
+
+    .match-champ {
+      font-size: 1.1rem;
+      font-weight: 600;
+      min-width: 120px;
+    }
+    .match-kda {
+      font-size: 0.95rem;
+      font-family: 'Consolas', monospace;
+    }
+    .match-kda .kda-ratio { color: var(--gold); font-size: 0.8rem; }
+    .match-mode {
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      margin-left: auto;
+    }
+    .match-analyze-btn {
+      background: transparent;
+      border: 1px solid var(--gold);
+      color: var(--gold);
+      padding: 0.4rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .match-analyze-btn:hover { background: var(--gold); color: #1a1a1a; }
+    .match-analyze-btn:disabled { opacity: 0.5; }
+
+    /* Analysis panel */
+    .analysis-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2rem;
+      margin-top: 2rem;
+    }
+    .analysis-panel h2 {
+      color: var(--gold-bright);
+      margin-bottom: 1rem;
+      font-size: 1.2rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .analysis-content h3 {
+      color: var(--gold);
+      margin: 1.25rem 0 0.5rem;
+      font-size: 1rem;
+    }
+    .analysis-content ul { margin-left: 1.5rem; margin-bottom: 0.5rem; }
+    .analysis-content li { margin-bottom: 0.3rem; line-height: 1.5; }
+    .analysis-content p { line-height: 1.6; margin-bottom: 0.5rem; }
+    .analysis-content strong { color: var(--gold-bright); }
+    .analysis-content code {
+      background: var(--surface2);
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+      font-size: 0.85rem;
+    }
+    .back-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+    }
+    .back-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+    .cache-badge {
+      display: inline-block;
+      background: var(--surface2);
+      color: var(--text-dim);
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⚔️ LoL Match Analyzer</h1>
+    <p>AI-powered coaching analysis using Riot API + Cloudflare Agents + Workers AI</p>
+  </header>
+
+  <div class="container">
+    <!-- Search -->
+    <div class="search-bar">
+      <input type="text" id="summoner" placeholder="Summoner name" />
+      <select id="region">
+        <option value="na1">NA</option>
+        <option value="euw1">EUW</option>
+        <option value="eun1">EUNE</option>
+        <option value="kr">KR</option>
+        <option value="jp1">JP</option>
+        <option value="br1">BR</option>
+        <option value="la1">LAN</option>
+        <option value="la2">LAS</option>
+        <option value="oc1">OCE</option>
+        <option value="tr1">TR</option>
+        <option value="ru">RU</option>
+        <option value="ph2">PH</option>
+        <option value="sg2">SG</option>
+        <option value="th2">TH</option>
+        <option value="tw2">TW</option>
+        <option value="vn2">VN</option>
+      </select>
+      <button id="searchBtn" onclick="searchMatches()">Search</button>
+    </div>
+
+    <div id="error"></div>
+    <div id="content"></div>
+  </div>
+
+  <script>
+    const summonerInput = document.getElementById('summoner');
+    const regionSelect = document.getElementById('region');
+    const searchBtn = document.getElementById('searchBtn');
+    const errorDiv = document.getElementById('error');
+    const contentDiv = document.getElementById('content');
+
+    // Enter key triggers search
+    summonerInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') searchMatches();
+    });
+
+    function showError(msg) {
+      errorDiv.innerHTML = `<div class="error">${msg}</div>`;
+    }
+    function clearError() { errorDiv.innerHTML = ''; }
+
+    function showLoading(msg) {
+      contentDiv.innerHTML = `<div class="loading"><div class="spinner"></div><p style="margin-top:1rem">${msg}</p></div>`;
+    }
+
+    // ── Search for matches ──────────────────────────────────────────
+    async function searchMatches() {
+      clearError();
+      const summoner = summonerInput.value.trim();
+      const region = regionSelect.value;
+      if (!summoner) { showError('Enter a summoner name.'); return; }
+
+      searchBtn.disabled = true;
+      showLoading('Fetching match history from Riot API...');
+
+      try {
+        const res = await fetch(`/api/matches?summoner=${encodeURIComponent(summoner)}&region=${region}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Request failed');
+        renderMatchList(data);
+      } catch (e) {
+        showError(e.message);
+        contentDiv.innerHTML = '';
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    // ── Render match list ───────────────────────────────────────────
+    function renderMatchList(data) {
+      const { summoner, matches } = data;
+      if (!matches || matches.length === 0) {
+        contentDiv.innerHTML = '<div class="loading">No matches found.</div>';
+        return;
+      }
+
+      let html = `<div style="color:var(--text-dim);margin-bottom:1rem;font-size:0.9rem">
+        <strong style="color:var(--gold)">${summoner.name}</strong> — Level ${summoner.summonerLevel} — ${matches.length} recent matches
+      </div>`;
+      html += '<div class="match-list">';
+
+      for (const m of matches) {
+        const resultClass = m.win ? 'win' : 'loss';
+        const resultText = m.win ? 'WIN' : 'LOSS';
+        const duration = Math.round(m.gameDuration / 60);
+        const date = new Date(m.gameCreation).toLocaleDateString();
+        const kdaColor = m.kda >= 3 ? 'var(--green)' : m.kda >= 1.5 ? 'var(--gold)' : 'var(--red)';
+
+        html += `
+          <div class="match-card ${resultClass}">
+            <div class="match-result ${resultClass}">${resultText}</div>
+            <div class="match-champ">${m.champion}</div>
+            <div class="match-kda">
+              ${m.kills}/${m.deaths}/${m.assists}
+              <span class="kda-ratio" style="color:${kdaColor}">${m.kda.toFixed(2)} KDA</span>
+            </div>
+            <div class="match-mode">${m.gameMode} · ${duration}min · ${date}</div>
+            <button class="match-analyze-btn" onclick="analyzeMatch('${m.matchId}')">Analyze</button>
+          </div>`;
+      }
+      html += '</div>';
+      contentDiv.innerHTML = html;
+    }
+
+    // ── Analyze a match ──────────────────────────────────────────────
+    async function analyzeMatch(matchId) {
+      clearError();
+      const summoner = summonerInput.value.trim();
+      const region = regionSelect.value;
+
+      // Disable all analyze buttons
+      document.querySelectorAll('.match-analyze-btn').forEach(b => b.disabled = true);
+
+      showLoading('Fetching match timeline and generating AI analysis... This can take 10-30 seconds.');
+
+      try {
+        const res = await fetch(`/api/analyze?matchId=${matchId}&summoner=${encodeURIComponent(summoner)}&region=${region}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Analysis failed');
+        renderAnalysis(data);
+      } catch (e) {
+        showError(e.message);
+        searchMatches(); // Go back to match list
+      }
+    }
+
+    // ── Render analysis ──────────────────────────────────────────────
+    function renderAnalysis(data) {
+      const { analysis, cached } = data;
+      const badge = cached ? '<span class="cache-badge">cached</span>' : '';
+      contentDiv.innerHTML = `
+        <button class="back-btn" onclick="searchMatches()">← Back to matches</button>
+        <div class="analysis-panel">
+          <h2>🤖 AI Coach Analysis ${badge}</h2>
+          <div class="analysis-content" id="analysisContent"></div>
+        </div>`;
+
+      // Render markdown to HTML (simple converter)
+      document.getElementById('analysisContent').innerHTML = renderMarkdown(analysis);
+    }
+
+    // ── Minimal Markdown → HTML ─────────────────────────────────────
+    function renderMarkdown(md) {
+      // Escape HTML
+      let html = md
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      // Code blocks
+      html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+      // Inline code
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+      // Headers
+      html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+      html = html.replace(/^# (.+)$/gm, '<h3>$1</h3>');
+      // Bold
+      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      // Italic
+      html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      // Bullet lists
+      html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+      html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+      // Fix nested uls
+      html = html.replace(/<\/ul>\s*<ul>/g, '');
+      // Paragraphs (lines not inside tags)
+      html = html.split('\n').map(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return '';
+        if (trimmed.startsWith('<')) return trimmed;
+        return `<p>${trimmed}</p>`;
+      }).join('\n');
+
+      return html;
+    }
+  </script>
+</body>
+</html>

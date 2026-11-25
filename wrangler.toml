@@ -1,0 +1,21 @@
+name = "lol-match-analyzer"
+main = "src/index.ts"
+compatibility_date = "2025-03-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Workers AI binding — provides the LLM for match analysis (free tier: 10,000 neurons/day)
+[ai]
+binding = "AI"
+
+# Static assets (the frontend UI)
+[assets]
+directory = "./public"
+
+# Durable Object binding for the Agent
+[[durable_objects.bindings]]
+name = "LOL_AGENT"
+class_name = "LolAgent"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["LolAgent"]
